@@ -59,13 +59,22 @@ public:
 
     Unit() {}
 
-    void action(int action_ind) {
+    int action(int action_ind) {
+        int value = 0;
         Action act = actions[action_ind];
         if (act.type == MNB) {
+            value = grid[y][x];
             x += act.x1;
             y += act.y1;
+            value = grid[y][x] - value;
+            value*=2;
+            int t = grid[y + act.y2][x + act.x2] - '0';
+            if (t == 3)
+                t = -1;
             grid[y + act.y2][x + act.x2]++;
+            value += t;
         } else {
+            value = grid[y][x] - '0' + 1;
             int en_ind = -1;
             for (int i = 0; i < unitsPerPlayer; i++) {
                 if ((enemy_units[i].x == x + act.x1) &&
@@ -76,8 +85,13 @@ public:
             }
             enemy_units[en_ind].x += act.x2;
             enemy_units[en_ind].y += act.y2;
+            int t = grid[y + act.y1][x + act.x1] - '0';
+            if (t == 3)
+                t = -1;
             grid[y + act.y1][x + act.x1]++;
+            value += t;
         }
+        return value;
     }
 
     void revert_action(int action_ind) {
@@ -104,6 +118,7 @@ public:
 
 int check_pos() {
     // Voronoi here
+    return 0;
 }
 
 int main()
@@ -147,11 +162,11 @@ int main()
         }
         cerr << my_units[0].actions[0].x1 << endl;
         Action *act;
-        int max_val = -1;
+        int max_val = -100;
         for (int i = 0; i < unitsPerPlayer; i++) {
             for (int j = 0; j < my_units[i].actions.size(); ++j) {
-                my_units[i].action(j);
-                int t = check_pos();
+                int t = my_units[i].action(j);
+                t += check_pos();
                 my_units[i].revert_action(j);
                 if (t > max_val) {
                     act = &my_units[i].actions[j];
