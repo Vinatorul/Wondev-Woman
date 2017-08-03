@@ -2,8 +2,16 @@
 
 using namespace std;
 
+class Action;
+class Unit;
+
+const string MNB = "MOVE&BUILD";
+const string PNB = "PUSH&BUILD";
 
 vector<string> grid;
+vector<Unit> my_units;
+vector<Unit> enemy_units;
+int unitsPerPlayer;
 
 pair<int, int> dir_to_diff(string dir) {
     if (dir == "N") {
@@ -27,45 +35,105 @@ pair<int, int> dir_to_diff(string dir) {
     }
 }
 
+struct Action {
+    int index;
+    int x1;
+    int y1;
+    int x2;
+    int y2;
+    string dir1;
+    string dir2;
+    string type;
+
+    void print() {
+        cout << type << " " << index << " " << dir1 << " " << dir2 << endl;
+    }
+};
+
+class Unit {
+public:
+    int index;
+    int x;
+    int y;
+    vector<Action> actions;
+
+    Unit() {}
+
+    void action(int action_ind) {
+        Action act = actions[action_ind];
+        if (act.type == MNB) {
+            x += act.x1;
+            y += act.y1;
+            grid[y + act.y2][x + act.x2]++;
+        } else {
+            int en_ind = -1;
+            for (int i = 0; i < unitsPerPlayer; i++) {
+                if ((enemy_units[i].x == x + act.x1) &&
+                    (enemy_units[i].y == y + act.y1)) {
+                    en_ind = i;
+                    break;
+                }
+            }
+            enemy_units[en_ind].x += act.x2;
+            enemy_units[en_ind].y += act.y2;
+            grid[y + act.y1][x + act.x1]++;
+        }
+    }
+
+    void revert_action(int action_ind) {
+        Action act = actions[action_ind];
+        if (act.type == MNB) {
+            grid[y + act.y2][x + act.x2]--;
+            x -= act.x1;
+            y -= act.y1;
+        } else {
+            grid[y + act.y1][x + act.x1]--;
+            int en_ind = -1;
+            for (int i = 0; i < unitsPerPlayer; i++) {
+                if ((enemy_units[i].x == x + act.x1 + act.x2) &&
+                    (enemy_units[i].y == y + act.y1 + act.y2)) {
+                    en_ind = i;
+                    break;
+                }
+            }
+            enemy_units[en_ind].x -= act.x2;
+            enemy_units[en_ind].y -= act.y2;
+        }
+    }
+};
+
+int check_pos() {
+    // Voronoi here
+}
+
 int main()
 {
     int size;
-    cin >> size; cin.ignore();
+    cin >> size;
     grid.resize(size);
-    int unitsPerPlayer;
-    cin >> unitsPerPlayer; cin.ignore();
+    cin >> unitsPerPlayer;
+    my_units.resize(unitsPerPlayer);
+    my_units[0].index = 0;
+    my_units[1].index = 1;
+    enemy_units.resize(unitsPerPlayer);
+    enemy_units[0].index = 0;
+    enemy_units[1].index = 1;
 
-    // game loop
     while (1) {
         for (int i = 0; i < size; i++) {
             string row;
             cin >> grid[i]; cin.ignore();
         }
-            int unitX1;
-            int unitY1;
-            cin >> unitX1 >> unitY1; cin.ignore();
-            int unitX2;
-            int unitY2;
-            cin >> unitX2 >> unitY2; cin.ignore();
-        // for (int i = 0; i < unitsPerPlayer; i++) {
-        //     cin >> unitX >> unitY; cin.ignore();
-        // }
         for (int i = 0; i < unitsPerPlayer; i++) {
-            int otherX;
-            int otherY;
-            cin >> otherX >> otherY; cin.ignore();
+            cin >> my_units[i].x >> my_units[i].y;
+            my_units[i].actions.clear();
+        }
+        for (int i = 0; i < unitsPerPlayer; i++) {
+            cin >> enemy_units[i].x >> enemy_units[i].y;
+            enemy_units[i].actions.clear();
         }
         int legalActions;
         cin >> legalActions; cin.ignore();
-        string ans11, ans12;
-        string atype1, atype2;
-        int cur_val1 = -999;
-        int b_val1 = 0;
-        int c_p1 = grid[unitY1][unitX1] - '0';
-        string ans21, ans22;
-        int cur_val2 = -999;
-        int b_val2 = 0;
-        int c_p2 = grid[unitY2][unitX2] - '0';
         for (int i = 0; i < legalActions; i++) {
             string atype;
             int index;
@@ -75,37 +143,22 @@ int main()
             cin >> atype >> index >> dir1 >> dir2; cin.ignore();
             tie(dx, dy) = dir_to_diff(dir1);
             tie(dx2, dy2) = dir_to_diff(dir2);
-            if (index == 0) {
-                int t_p = grid[unitY1 + dy][unitX1 + dx] - '0';
-                int t_p2 = grid[unitY1 + dy + dy2][unitX1 + dx + dx2] - '0';
-                if (t_p2 == 3)
-                    t_p2 = -1;
-                if (t_p - c_p1 + t_p2 >= cur_val1 + b_val1) {
-                    cur_val1 = t_p - c_p1;
-                    b_val1 = t_p2;
-                    ans11 = dir1;
-                    ans12 = dir2;
-                    atype1 = atype;
-                }
-            } else {
-                int t_p = grid[unitY2 + dy][unitX2 + dx] - '0';
-                int t_p2 = grid[unitY2 + dy + dy2][unitX2 + dx + dx2] - '0';
-                if (t_p2 == 3)
-                    t_p2 = -1;
-                if (t_p - c_p2 + t_p2 > cur_val2 + b_val2) {
-                    cur_val2 = t_p - c_p2;
-                    b_val2 = t_p2; 
-                    ans21 = dir1;
-                    ans22 = dir2;
-                    atype2 = atype;
+            my_units[index].actions.push_back({index, dx, dy, dx2, dy2, dir1, dir2, atype});
+        }
+        cerr << my_units[0].actions[0].x1 << endl;
+        Action *act;
+        int max_val = -1;
+        for (int i = 0; i < unitsPerPlayer; i++) {
+            for (int j = 0; j < my_units[i].actions.size(); ++j) {
+                my_units[i].action(j);
+                int t = check_pos();
+                my_units[i].revert_action(j);
+                if (t > max_val) {
+                    act = &my_units[i].actions[j];
+                    max_val = t;
                 }
             }
-        }   
-        
-        if (cur_val1 > cur_val2) {
-            cout << atype1 << " 0 " << ans11 << " " << ans12 << endl;
-        } else {
-            cout << atype2 << " 1 " << ans21 << " " << ans22 << endl;
         }
+        act->print();
     }
 }
